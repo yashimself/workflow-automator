@@ -1,82 +1,49 @@
-import React from "react";
+import React, { memo } from "react";
 import { Handle, Position } from "reactflow";
-import { Box, Typography, IconButton, Tooltip } from "@mui/material";
-import FileUploadIcon from "@mui/icons-material/FileUpload";
-import SaveIcon from "@mui/icons-material/Save";
-import EditIcon from "@mui/icons-material/Edit";
+import { Box, Typography, IconButton } from "@mui/material";
+import SettingsIcon from "@mui/icons-material/Settings";
 import DeleteIcon from "@mui/icons-material/Delete";
 
-const getActionIcon = (type) => {
-  switch (type) {
-    case "loadData":
-      return <FileUploadIcon />;
-    case "saveData":
-      return <SaveIcon />;
-    default:
-      return null;
-  }
-};
+const ActionNode = ({ id, data }) => {
+  const handleConfigure = (e) => {
+    e.stopPropagation();
+    data.onConfigure(id);
+  };
 
-const getActionLabel = (type) => {
-  switch (type) {
-    case "loadData":
-      return "Load Data";
-    case "saveData":
-      return "Save Data";
-    default:
-      return "Action";
-  }
-};
-
-const ActionNode = ({ data, id }) => {
-  const { type, label, config } = data;
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    data.onDelete(id);
+  };
 
   return (
     <Box
       sx={{
         padding: 2,
         borderRadius: 1,
-        backgroundColor: "white",
-        border: "1px solid #ddd",
-        minWidth: 200,
-        boxShadow: 1,
+        backgroundColor: "background.paper",
+        border: "1px solid",
+        borderColor: "divider",
+        minWidth: 150,
       }}
     >
       <Handle type="target" position={Position.Top} />
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        {getActionIcon(type)}
+      <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
         <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>
-          {label || getActionLabel(type)}
+          {data.label}
         </Typography>
-        <Tooltip title="Configure">
-          <IconButton size="small" onClick={() => data.onConfigure(id)}>
-            <EditIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Delete">
-          <IconButton size="small" onClick={() => data.onDelete(id)}>
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <IconButton size="small" onClick={handleConfigure} sx={{ mr: 0.5 }}>
+          <SettingsIcon fontSize="small" />
+        </IconButton>
+        <IconButton size="small" onClick={handleDelete} color="error">
+          <DeleteIcon fontSize="small" />
+        </IconButton>
       </Box>
-      {config && (
-        <Box sx={{ mt: 1, fontSize: "0.75rem", color: "text.secondary" }}>
-          {type === "loadData" && (
-            <Typography variant="caption">
-              Source:{" "}
-              {config.sourceType === "file" ? config.filePath : "Custom Script"}
-            </Typography>
-          )}
-          {type === "saveData" && (
-            <Typography variant="caption">
-              Destination: {config.filePath || "Not set"}
-            </Typography>
-          )}
-        </Box>
-      )}
+      <Typography variant="caption" color="text.secondary">
+        {data.type}
+      </Typography>
       <Handle type="source" position={Position.Bottom} />
     </Box>
   );
 };
 
-export default ActionNode;
+export default memo(ActionNode);
