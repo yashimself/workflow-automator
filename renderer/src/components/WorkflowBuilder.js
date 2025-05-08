@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import ReactFlow, {
   Background,
   Controls,
@@ -8,11 +8,20 @@ import ReactFlow, {
   useEdgesState,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Box, Button, Typography, Menu, MenuItem } from "@mui/material";
+import {
+  Box,
+  Button,
+  Typography,
+  Menu,
+  MenuItem,
+  IconButton,
+} from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { useDispatch, useSelector } from "react-redux";
 import { addNode, updateNode, removeNode } from "../store/workflowSlice";
 import ActionNode from "./ActionNode";
 import ActionConfigDialog from "./ActionConfigDialog";
+import CreateActionDialog from "./CreateActionDialog";
 
 const nodeTypes = {
   action: ActionNode,
@@ -24,8 +33,23 @@ const WorkflowBuilder = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState(workflow.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(workflow.edges);
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [createActionDialogOpen, setCreateActionDialogOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [availableActions, setAvailableActions] = useState([]);
+
+  // Load available actions
+  useEffect(() => {
+    const loadActions = async () => {
+      try {
+        const actions = await window.api.getActions();
+        setAvailableActions(actions);
+      } catch (error) {
+        console.error("Failed to load actions:", error);
+      }
+    };
+    loadActions();
+  }, []);
 
   const onConnect = useCallback(
     (params) => {
@@ -77,15 +101,35 @@ const WorkflowBuilder = () => {
     [selectedNode, dispatch, setNodes]
   );
 
+  const handleCreateAction = async (newAction) => {
+    try {
+      await window.api.saveAction(newAction);
+      setAvailableActions((prev) => [...prev, newAction]);
+    } catch (error) {
+      console.error("Failed to create action:", error);
+    }
+  };
+
+  const handleDeleteAction = async (actionId, event) => {
+    event.stopPropagation();
+    try {
+      await window.api.deleteAction(actionId);
+      setAvailableActions((prev) => prev.filter((a) => a.id !== actionId));
+    } catch (error) {
+      console.error("Failed to delete action:", error);
+    }
+  };
+
   const addNewNode = useCallback(
-    (type, position) => {
+    (action, position) => {
       const newNode = {
-        id: `${type}-${Date.now()}`,
+        id: `${action.type}-${Date.now()}`,
         type: "action",
         position,
         data: {
-          type,
-          label: type === "loadData" ? "Load Data" : "Save Data",
+          type: action.type,
+          label: action.name,
+          config: action.config,
           onConfigure: handleConfigure,
           onDelete: handleDelete,
         },
@@ -104,9 +148,9 @@ const WorkflowBuilder = () => {
     setAnchorEl(null);
   };
 
-  const handleActionSelect = (type) => {
+  const handleActionSelect = (action) => {
     handleAddActionClose();
-    addNewNode(type, {
+    addNewNode(action, {
       x: Math.random() * 500,
       y: Math.random() * 500,
     });
@@ -125,11 +169,28 @@ const WorkflowBuilder = () => {
             open={Boolean(anchorEl)}
             onClose={handleAddActionClose}
           >
-            <MenuItem onClick={() => handleActionSelect("loadData")}>
-              Load Data
-            </MenuItem>
-            <MenuItem onClick={() => handleActionSelect("saveData")}>
-              Save Data
+            {availableActions.map((action) => (
+              <MenuItem
+                key={action.id}
+                onClick={() => handleActionSelect(action)}
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <span>{action.name}</span>
+                <IconButton
+                  size="small"
+                  onClick={(e) => handleDeleteAction(action.id, e)}
+                  color="error"
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </MenuItem>
+            ))}
+            <MenuItem onClick={() => setCreateActionDialogOpen(true)}>
+              + Create New Action
             </MenuItem>
           </Menu>
         </Box>
@@ -153,6 +214,11 @@ const WorkflowBuilder = () => {
         onClose={() => setConfigDialogOpen(false)}
         onSave={handleConfigSave}
         action={selectedNode?.data}
+      />
+      <CreateActionDialog
+        open={createActionDialogOpen}
+        onClose={() => setCreateActionDialogOpen(false)}
+        onSave={handleCreateAction}
       />
     </Box>
   );
